@@ -30,6 +30,7 @@ import {
 } from "@tavern/core";
 import {
   assembleCompat,
+  applyRegexScripts,
   assembleCompatPlus,
   buildImportedPresetPromptGraph,
   buildNativeContributorNodes,
@@ -816,7 +817,7 @@ export async function assemblePrompt(
   });
 
   const fullHistory = buildFullHistory(chatHistory, userMessage);
-  const compatHistory = fullHistory.filter((message) => message.role === "user" || message.role === "assistant");
+  let compatHistory = fullHistory.filter((message) => message.role === "user" || message.role === "assistant");
   const recentMacroVisibleMessages = buildVisibleRecentMacroMessages({
     committedHistory: chatHistory,
     currentUserMessage: userMessage,
@@ -857,12 +858,21 @@ export async function assemblePrompt(
     values: Record<string, string>;
     sampleText: string;
   }): StMacroEvalResult => {
-    return collectMacroDiagnostics(evaluatePromptMacroValues({
+    const result = evaluatePromptMacroValues({
       phase: args.phase,
       values: args.values,
       variableSnapshot: macroValueBuild.variableSnapshot,
       sampleText: args.sampleText,
-    }));
+    });
+    // Writes from earlier preset entries must be visible to later entries in this assembly.
+    for (const mutation of result.stagedMutations) {
+      const target = mutation.scope === "global"
+        ? macroValueBuild.variableSnapshot.global
+        : macroValueBuild.variableSnapshot.local;
+      if (mutation.kind === "delete") delete target[mutation.key];
+      else target[mutation.key] = mutation.value as StMacroJsonValue;
+    }
+    return collectMacroDiagnostics(result);
   };
 
   const evaluatedCharacterSystemPrompt = character?.systemPrompt?.trim()
@@ -931,6 +941,20 @@ export async function assemblePrompt(
   };
 
   const enabledRegexScripts = promptSnapshot.regexProfile?.scripts ?? [];
+  const regexAppliedToCompatHistory = enabledRegexScripts.length > 0
+    && Boolean(promptSnapshot.preset) && promptSnapshot.promptMode !== "native";
+  const rawCompatHistory = compatHistory;
+  if (regexAppliedToCompatHistory) {
+    const historyDepths = compatHistory.map((_message, index) => compatHistory.length - 1 - index);
+    const substitutions = buildRegexSubstitutionContext(promptVariables);
+    compatHistory = compatHistory.map((message, index) => (
+      { ...message, content: applyRegexScripts(message.content, enabledRegexScripts,
+        message.role === "user" ? REGEX_PLACEMENT.USER_INPUT : REGEX_PLACEMENT.AI_OUTPUT, {
+          ...substitutions, channel: "prompt", depth: historyDepths[index] ?? 0,
+        }) }
+    ));
+  }
+
 
   let messages: ChatMessage[];
   let maxPromptTokens = effectiveBudget.maxInputTokens + effectiveBudget.reservedCompletionTokens;
@@ -1287,9 +1311,10 @@ export async function assemblePrompt(
 
   if (enabledRegexScripts.length > 0) {
     const currentUserPromptRegexPhase = buildCurrentUserPromptRegexPhase({
-      candidateMessages: messages,
+      candidateMessages: regexAppliedToCompatHistory ? rawCompatHistory : messages,
       scripts: enabledRegexScripts,
       substitutionContext: regexSubstitutionContext,
+      fromNewest: regexAppliedToCompatHistory,
     });
     const reservedWorldInfoRegexPhase = buildReservedWorldInfoRegexPhase(enabledRegexScripts);
 
@@ -1303,6 +1328,8 @@ export async function assemblePrompt(
     }
 
     preProcess = (candidateMessages: ChatMessage[]): ChatMessage[] => {
+      // Compatibility messages were processed before preset injection and role merging.
+      if (regexAppliedToCompatHistory) return candidateMessages;
       const depthByMessageIndex = buildRegexDepthByMessageIndex(candidateMessages);
 
       return candidateMessages.map((message, index) => {
@@ -3008,6 +3035,7 @@ function buildCurrentUserPromptRegexPhase(args: {
   candidateMessages: ChatMessage[];
   scripts: STRegexScript[];
   substitutionContext: ReturnType<typeof buildRegexSubstitutionContext>;
+  fromNewest?: boolean;
 }): PromptRuntimeRegexPhaseRuntimeResult | undefined {
   if (args.scripts.length === 0) {
     return undefined;
@@ -3024,7 +3052,7 @@ function buildCurrentUserPromptRegexPhase(args: {
       phaseId: "prompt.user_input",
       text: message.content,
       scripts: args.scripts,
-      depth: depthByMessageIndex[index] ?? 0,
+      depth: args.fromNewest ? args.candidateMessages.length - 1 - index : depthByMessageIndex[index] ?? 0,
       substitutionContext: args.substitutionContext,
     });
   }

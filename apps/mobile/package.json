@@ -1,0 +1,27 @@
+{
+  "name": "@tavern/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit",
+    "build": "vue-tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "@tavern/sdk": "workspace:*",
+    "@tavern/client-helpers": "workspace:*",
+    "@tavern/adapters-sillytavern": "workspace:*",
+    "vue": "^3.5.13",
+    "dompurify": "^3.3.1",
+    "markdown-it": "^14.1.1"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.10.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vue-tsc": "^2.2.0"
+  }
+}

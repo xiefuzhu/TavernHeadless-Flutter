@@ -98,18 +98,12 @@ describe("evaluateStMacros limits", () => {
     ]));
   });
 
-  it("uses updated warning text for unsupported macro argument shape", () => {
-    const result = evaluateStMacros("{{random::a::b}}", {
-      phase: "assemble",
-      values: {},
+  it("supports preset random, dice, trim and comment macros", () => {
+    const result = evaluateStMacros("{{// hidden}}{{trim}}{{random::a::b}}|{{roll 1d999999}}", {
+      phase: "assemble", values: {},
     });
-
-    expect(result.warnings).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: "macro_arg_arity_invalid",
-        message: expect.stringContaining("outside the current supported macro subset"),
-      }),
-    ]));
+    expect(result.text).toMatch(/^[ab]\|[1-9]\d{0,5}$/);
+    expect(result.warnings).toEqual([]);
   });
 
   it("uses shared write mutation budget for preview and staged mutation recording", () => {

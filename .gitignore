@@ -4,6 +4,7 @@ node_modules/
 
 # Build outputs
 dist/
+dist-ssr/
 coverage/
 .turbo/
 .nyc_output/
@@ -15,6 +16,8 @@ apps/api/data/*
 !apps/api/data/.gitkeep
 *.sqlite
 *.sqlite3
+*.sqlite-*
+*.sqlite3-*
 *.db
 *.db-*
 *.db-wal
@@ -25,6 +28,7 @@ apps/api/data/*
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Logs
 *.log
@@ -37,6 +41,12 @@ yarn-error.log*
 .cache/
 .tmp/
 tmp/
+*.tmp
+*.temp
+.eslintcache
+.venv/
+venv/
+*.py[cod]
 .VSCodeCounter/
 
 # Generated SDK check temps
@@ -48,8 +58,23 @@ packages/shared/src/generated/.openapi-types.check.ts
 
 # OS / editor artifacts
 .DS_Store
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.directory
+*.swp
+*.swo
+*~
 .idea/
 .vscode/
 .cursor/
 notes/
+
+# Local imported assets and credentials
+.local/
+apps/mobile/public/prototype.json
+__pycache__/

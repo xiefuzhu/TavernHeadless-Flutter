@@ -65,7 +65,7 @@ const { app } = await buildApp({
 });
 
 app
-  .listen({ port: config.port, host: "0.0.0.0" })
+  .listen({ port: config.port, host: "127.0.0.1" })
   .then(() => {
     app.log.info(`API listening on :${config.port}`);
     if (config.orchestration) {

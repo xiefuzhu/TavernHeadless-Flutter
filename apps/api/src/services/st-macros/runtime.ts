@@ -679,7 +679,9 @@ export function evaluateStMacros(input: string, context: StMacroRuntimeContext):
   const traces: StMacroTraceEntry[] = [];
   const mutationPreview: StMacroMutationPreview[] = [];
   const stagedMutations: StMacroStagedMutation[] = [];
-  const normalizedInput = normalizeLegacyAliases(input);
+  const normalizedInput = context.phase === "import" ? normalizeLegacyAliases(input) : normalizeLegacyAliases(input)
+    .replace(/\{\{\/\/[\s\S]*?\}\}/g, "")
+    .replace(/(?:\r?\n)*\{\{trim\}\}(?:\r?\n)*/gi, "");
   const maxDepth = context.maxDepth ?? 16;
   const maxSteps = context.maxSteps ?? 256;
   const maxExpandedLength = context.maxExpandedLength ?? 32_768;
@@ -910,6 +912,23 @@ export function evaluateStMacros(input: string, context: StMacroRuntimeContext):
       }
       try {
         const normalizedArgs = node.args.map((arg) => evaluateNodes(arg.nodes, depth + 1));
+
+        if (node.name === "random" && normalizedArgs.length > 0) {
+          const choices = normalizedArgs.length > 1 ? normalizedArgs : (normalizedArgs[0] ?? "").split(",").map(value => value.trim());
+          const text = choices[Math.floor(Math.random() * choices.length)] ?? "";
+          pushTrace({ macroName: node.name, rawText: node.rawText, resolvedText: text, sourceKind: "macro" });
+          return text;
+        }
+        if (node.name === "roll" && normalizedArgs.length === 1) {
+          const dice = /^(\d+)d(\d+)$/i.exec(normalizedArgs[0] ?? "");
+          if (dice && Number(dice[1]) > 0 && Number(dice[1]) <= 100 && Number(dice[2]) > 0 && Number.isSafeInteger(Number(dice[2]))) {
+            let total = 0;
+            for (let i = 0; i < Number(dice[1]); i += 1) total += 1 + Math.floor(Math.random() * Number(dice[2]));
+            const text = String(total);
+            pushTrace({ macroName: node.name, rawText: node.rawText, resolvedText: text, sourceKind: "macro" });
+            return text;
+          }
+        }
 
         const writeResult = resolveWriteMacro(node.name, node.rawText, normalizedArgs, variableSnapshot, variableOverlay, context.phase);
         if (writeResult) {

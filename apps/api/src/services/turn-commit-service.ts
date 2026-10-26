@@ -714,6 +714,10 @@ export class TurnCommitService {
     const variableMutationBatch = this.variableCommitService.beginBatch();
     const effectiveBranchId = input.branchId ?? "main";
     const assistantOutputText = composeAssistantOutputText(input.execution);
+    if (!assistantOutputText.trim() && (input.supersedeSourceFloor
+      || (actualToolExecutionRecords.length === 0 && explicitLegacyToolCalls.length === 0 && pendingToolJobs.length === 0))) {
+      throw new Error("Generation returned no text; previous reply is preserved. The model may have exhausted its output budget on reasoning.");
+    }
     const [sessionRow] = this.db
       .select({ kind: sessions.kind })
       .from(sessions)
