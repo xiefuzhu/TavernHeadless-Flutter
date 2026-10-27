@@ -65,9 +65,9 @@ const { app } = await buildApp({
 });
 
 app
-  .listen({ port: config.port, host: "127.0.0.1" })
-  .then(() => {
-    app.log.info(`API listening on :${config.port}`);
+  .listen({ port: config.port, host: process.env.HOST ?? "127.0.0.1" })
+  .then((address) => {
+    app.log.info(`API listening on ${address}`);
     if (config.orchestration) {
       app.log.info(
         `Chat routes enabled (model: ${config.orchestration.defaultModel.modelId})`
